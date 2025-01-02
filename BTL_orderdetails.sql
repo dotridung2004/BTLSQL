@@ -333,6 +333,24 @@ FROM
 GROUP BY 
     status
 select * from OrderStatusPercentage
+--1.Viết 1 view hiện thị danh sách trạng thái đơn hàng theo từng khách hàng
+Alter VIEW CustomerOrderStatus AS
+SELECT 
+    Orders.userid,
+    Users.username AS customer_name,
+    Order_details.order_id,
+    Order_details.status,
+    COUNT(*) AS total_items,
+    SUM(CASE WHEN Order_details.status = 'not_completed' THEN 0 ELSE Order_details.total_price END) AS total_order_value
+FROM 
+    Order_details 
+INNER JOIN 
+    Orders  ON Order_details.order_id = Orders.id
+INNER JOIN 
+    Users  ON Orders.userid = Users.id
+GROUP BY 
+    Orders.userid, Users.username, Order_details.order_id, Order_details.status;
+select * from CustomerOrderStatus
 --2.View phân tích khách hàng theo giá trị đơn hàng
 ALTER VIEW CustomerOrderValueAnalysis AS
 SELECT 
@@ -350,10 +368,9 @@ JOIN
 JOIN
     Users   ON Orders.userid = Users.id  
 GROUP BY 
-    Orders.userid, Users.username;
-
-SELECT * FROM CustomerOrderValueAnalysis
+    Orders.userid, Users.username
 ORDER BY TotalSpent DESC;
+SELECT * FROM CustomerOrderValueAnalysis
 --proc
 --1.viết 1 thủ tục hiển thị thông tin sản phầm theo mã đơn hàng
 alter PROCEDURE GetOrderProducts
