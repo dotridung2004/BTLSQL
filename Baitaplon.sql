@@ -153,7 +153,7 @@ Select * from orders
 
 --TRIGGER--
 --1.Viết trigger không cho đặt hàng nếu như tài khoản người dùng đang ở trạng thái khóa (locked)
-CREATE TRIGGER trg_prevent_order_if_locked
+alter TRIGGER trg_prevent_order_if_locked
 ON Orders
 INSTEAD OF INSERT
 AS
@@ -270,7 +270,7 @@ select * from dbo.GetOrdersBySpecificDate('2024-12-28')
 
 --VIEW--
 --1.Viết 1 view trả về một bảng chứa tất cả các đơn hàng của người dùng đó.
-CREATE VIEW View_Donhang
+CREATE VIEW View_OrdersWithUser
 AS
     SELECT  userid, order_date, note
     FROM Orders,Users WHERE Users.id = Orders.id
@@ -350,7 +350,7 @@ EXEC UpdateOrderNote @OrderID = 3, @NewNote = 'Updated note for this order...'
 select * from Orders
 
 --2.viết thủ tục lấy thông tin chi tiết đơn hàng theo OrderID sử dụng con trỏ
-CREATE PROC PROC1
+CREATE PROC GetOrderDetailsByOrderID
     @OrderID INT
 AS
 BEGIN
