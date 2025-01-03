@@ -124,7 +124,6 @@ Create table Orders(
 	note nvarchar(200),
 	foreign key (userid) references users(id)
 )
-
 INSERT INTO Orders (userid, order_date, note)
 VALUES 
 (1, GETDATE() - 20, 'Fast delivery requested'),
@@ -156,7 +155,7 @@ create table Order_details(
 	quantity int,
 	unit_price float,
 	total_price float,
-	status nvarchar(50),
+	status nvarchar(50),check (status IN ('completed', 'not_completed')),
 	foreign key (order_id) references orders(id),
 	foreign key (game_model_id) references GameModel(id)
 	)
@@ -195,7 +194,7 @@ WHERE EXISTS (
 );
 --trigger
 --1.Viết trigger con trỏ tính tổng tiền
-alter TRIGGER trg_TotalPrice
+create TRIGGER trg_TotalPrice
 ON Order_details
 FOR INSERT, UPDATE
 AS
@@ -233,12 +232,13 @@ END
     CLOSE order_cursor;
     DEALLOCATE order_cursor;
 END;
-select * from Order_details
+
+
 UPDATE Order_details
-SET unit_price = 19.99
-WHERE id = 3; 
+SET unit_price = 10.99
+WHERE id = 1; 
 --2.viết trigger và con trỏ không cho xóa khi đơn hàng đã hoàn thành
-ALTER TRIGGER deleteorder
+create TRIGGER deleteorder
 ON Order_details
 INSTEAD OF DELETE
 AS
@@ -281,10 +281,10 @@ BEGIN
     DEALLOCATE delete_cursor;
 END;
 select * from Order_details
-DELETE FROM Order_details WHERE id = 21;
+DELETE FROM Order_details WHERE id = 20;
 --function
 --1.viết 1 hàm in ra các mặt hàng bán chạy nhất
-alter FUNCTION GetBestSellingItem(@Top INT)
+create FUNCTION GetBestSellingItem(@Top INT)
 RETURNS TABLE
 AS
 RETURN
@@ -320,7 +320,7 @@ BEGIN
 
     RETURN ISNULL(@TotalRevenue, 0);
 END;
-SELECT dbo.GetRevenueByDateRange('2024-12-08', '2024-12-09') AS TotalRevenue;
+SELECT dbo.GetRevenueByDateRange('2024-12-08', '2025-12-09') AS TotalRevenue;
 --view
 --1. viết View phân tích tỷ lệ hoàn thành đơn hàng
 CREATE VIEW OrderStatusPercentage AS
@@ -369,8 +369,9 @@ JOIN
     Users   ON Orders.userid = Users.id  
 GROUP BY 
     Orders.userid, Users.username
-ORDER BY TotalSpent DESC;
+	ORDER BY TotalSpent DESC
 SELECT * FROM CustomerOrderValueAnalysis
+ORDER BY TotalSpent DESC
 --proc
 --1.viết 1 thủ tục hiển thị thông tin sản phầm theo mã đơn hàng
 alter PROCEDURE GetOrderProducts
@@ -386,7 +387,7 @@ BEGIN
     WHERE 
         Order_details.order_id = @OrderID;
 END;
-EXEC GetOrderProducts @OrderID = 10;
+EXEC GetOrderProducts @OrderID = 1;
 --2.Viết thủ tục cập nhật số lượng sản phẩm trong đơn hàng 
 alter PROCEDURE UpdateOrderDetailQuantity
 (
@@ -415,7 +416,7 @@ BEGIN
     SET @message = N'Số lượng được cập nhật thành công.';
     PRINT @message;
 END;
-EXEC UpdateOrderDetailQuantity @order_detail_id = 21, @new_quantity = -3;
+EXEC UpdateOrderDetailQuantity @order_detail_id = 30, @new_quantity = 30;
 --con trỏ(ở 2 trigger)
 
 Create table Delivery(
