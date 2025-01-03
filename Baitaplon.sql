@@ -165,7 +165,7 @@ BEGIN
     )
     BEGIN
         -- Nếu status của user là 'locked', không cho phép thêm order
-        Print ('Không thể tạo đơn hàng khi tài khoản người dùng đang ở trạng thái locked.');
+        PRINT ('Không thể tạo đơn hàng khi tài khoản người dùng đang ở trạng thái locked.');
         ROLLBACK tran ;
     END
     ELSE
@@ -223,28 +223,6 @@ INSERT INTO Orders (userid, order_date, note)
 VALUES 
 (1, GETDATE() - 20, 'Fast delivery requested')
 
-
---3.viết trigger tự động cập nhật ngày đặt khi ghi chú thay đổi
-CREATE TRIGGER trg_UpdateOrderDateWhenNoteChanges
-ON Orders
-AFTER UPDATE
-AS
-BEGIN
-    DECLARE @OldNote NVARCHAR(200), @NewNote NVARCHAR(200);
-    SELECT @OldNote = note FROM DELETED;
-    SELECT @NewNote = note FROM INSERTED;
-
-    IF @OldNote != @NewNote
-    BEGIN
-        UPDATE Orders
-        SET order_date = GETDATE()
-        FROM Orders o
-        INNER JOIN INSERTED i ON o.id = i.id;
-    END
-END;
-
-
-
 --FUNCTION--
 --1.Viết 1 hàm tính tổng số đơn hàng của người dùng trong một khoảng thời gian
 CREATE FUNCTION GetTotalOrdersByUser (
@@ -292,7 +270,7 @@ select * from dbo.GetOrdersBySpecificDate('2024-12-28')
 
 --VIEW--
 --1.Viết 1 view trả về một bảng chứa tất cả các đơn hàng của người dùng đó.
-CREATE VIEW view1
+CREATE VIEW View_Donhang
 AS
     SELECT  userid, order_date, note
     FROM Orders,Users WHERE Users.id = Orders.id
@@ -320,33 +298,10 @@ select * from View_OrdersWithNotes
 
 
 --PROC--
---1.Viết thủ tục cập nhập ghi chú(note) cho một đơn hàng
+--1.Viết thủ tục cập nhập ghi chú(note) cho một đơn hàng sử dụng con trỏ
 CREATE PROC UpdateOrderNote
     @OrderID INT,
     @NewNote NVARCHAR(200)
-AS
-BEGIN
-    -- Kiểm tra xem đơn hàng có tồn tại hay không
-    IF NOT EXISTS (SELECT * FROM Orders WHERE id = @OrderID)
-    BEGIN
-        PRINT 'OrderID không tồn tại ';
-        RETURN;
-    END
-
-    -- Cập nhật ghi chú của đơn hàng
-    UPDATE Orders
-    SET note = @NewNote
-    WHERE id = @OrderID;
-
-    PRINT 'Ghi chú của đơn hàng đã được cập nhật';
-END
-
-EXEC UpdateOrderNote @OrderID = 1, @NewNote = 'Updated note for this order'
-
-
---2.viết thủ tục lấy thông tin chi tiết đơn hàng theo OrderID
-CREATE PROC PROC1
-    @OrderID INT
 AS
 BEGIN
     -- Kiểm tra xem đơn hàng có tồn tại hay không
@@ -356,78 +311,45 @@ BEGIN
         RETURN;
     END
 
-    -- Truy vấn chi tiết đơn hàng
-    SELECT 
-        o.id AS OrderID,
-        o.order_date AS OrderDate,
-        o.note AS Note,
-        u.id AS UserID,
-        u.username AS Username,
-        u.email AS Email,
-        u.address AS Address,
-        u.status AS UserStatus
-    FROM Orders o
-    JOIN Users u ON o.userid = u.id
-    WHERE o.id = @OrderID;
-END
-EXEC PROC1 @OrderID = 30;
+    -- Khai báo biến cho con trỏ
+    DECLARE @OrderIDCursor INT, @CurrentNote NVARCHAR(200);
 
-
-
---con trỏ
---1.Con trỏ để duyệt qua tất cả các đơn hàng và in thông tin của từng đơn hàng
-DECLARE @OrderID INT, @UserID INT, @OrderDate DATETIME, @Note NVARCHAR(200);
-
-DECLARE order_cursor CURSOR FOR
-SELECT id, userid, order_date, note
-FROM Orders;
-
-OPEN order_cursor;
-
-FETCH NEXT FROM order_cursor INTO @OrderID, @UserID, @OrderDate, @Note;
-
-WHILE @@FETCH_STATUS = 0
-BEGIN
-    PRINT 'Order ID: ' + CAST(@OrderID AS NVARCHAR) +
-          ', User ID: ' + CAST(@UserID AS NVARCHAR) +
-          ', Order Date: ' + CAST(@OrderDate AS NVARCHAR) +
-          ', Note: ' + ISNULL(@Note, 'No Note');
-    
-    FETCH NEXT FROM order_cursor INTO @OrderID, @UserID, @OrderDate, @Note;
-END;
-
-CLOSE order_cursor;
-DEALLOCATE order_cursor;
-
---2.Con trỏ để duyệt qua các đơn hàng và cập nhật ghi chú (note) của từng đơn hàng
-
-DECLARE @OrderID INT, @Note NVARCHAR(200);
-
-DECLARE update_cursor CURSOR FOR
-SELECT id, note
-FROM Orders;
-
-OPEN update_cursor;
-
-FETCH NEXT FROM update_cursor INTO @OrderID, @Note;
-
-WHILE @@FETCH_STATUS = 0
-BEGIN
-    -- Cập nhật ghi chú cho đơn hàng
-    UPDATE Orders
-    SET note = ISNULL(note, '') + ' - Updated'
+    -- Khai báo con trỏ để duyệt qua các đơn hàng
+    DECLARE order_cursor CURSOR FOR
+    SELECT id, note
+    FROM Orders
     WHERE id = @OrderID;
-    
-    -- Tiếp tục lấy dòng tiếp theo
-    FETCH NEXT FROM update_cursor INTO @OrderID, @Note;
-END;
 
-CLOSE update_cursor;
-DEALLOCATE update_cursor;
+    -- Mở con trỏ
+    OPEN order_cursor;
 
+    -- Lấy dữ liệu đầu tiên từ con trỏ
+    FETCH NEXT FROM order_cursor INTO @OrderIDCursor, @CurrentNote;
 
+    -- Kiểm tra con trỏ có dữ liệu hay không
+    IF @@FETCH_STATUS = 0
+    BEGIN
+        -- Cập nhật ghi chú cho đơn hàng
+        UPDATE Orders
+        SET note = @NewNote
+        WHERE id = @OrderIDCursor;
 
-----con trỏ lồng vào proc1-----
+        PRINT 'Ghi chú của đơn hàng ID ' + CAST(@OrderIDCursor AS NVARCHAR) + ' đã được cập nhật';
+    END
+    ELSE
+    BEGIN
+        PRINT 'Không tìm thấy đơn hàng với OrderID: ' + CAST(@OrderID AS NVARCHAR);
+    END
+
+    -- Đóng và giải phóng con trỏ
+    CLOSE order_cursor;
+    DEALLOCATE order_cursor;
+END
+EXEC UpdateOrderNote @OrderID = 1, @NewNote = 'Updated note for this order'
+EXEC UpdateOrderNote @OrderID = 3, @NewNote = 'Updated note for this order...'
+select * from Orders
+
+--2.viết thủ tục lấy thông tin chi tiết đơn hàng theo OrderID sử dụng con trỏ
 CREATE PROC PROC1
     @OrderID INT
 AS
@@ -482,56 +404,10 @@ END
  
  exec PROC1 2
 
- -----lồng con trỏ vào UpdateOrderNote---------
-CREATE PROC UpdateOrderNote
-    @OrderID INT,
-    @NewNote NVARCHAR(200)
-AS
-BEGIN
-    -- Kiểm tra xem đơn hàng có tồn tại hay không
-    IF NOT EXISTS (SELECT * FROM Orders WHERE id = @OrderID)
-    BEGIN
-        PRINT 'OrderID không tồn tại';
-        RETURN;
-    END
 
-    -- Khai báo biến cho con trỏ
-    DECLARE @OrderIDCursor INT, @CurrentNote NVARCHAR(200);
 
-    -- Khai báo con trỏ để duyệt qua các đơn hàng
-    DECLARE order_cursor CURSOR FOR
-    SELECT id, note
-    FROM Orders
-    WHERE id = @OrderID;
 
-    -- Mở con trỏ
-    OPEN order_cursor;
 
-    -- Lấy dữ liệu đầu tiên từ con trỏ
-    FETCH NEXT FROM order_cursor INTO @OrderIDCursor, @CurrentNote;
-
-    -- Kiểm tra con trỏ có dữ liệu hay không
-    IF @@FETCH_STATUS = 0
-    BEGIN
-        -- Cập nhật ghi chú cho đơn hàng
-        UPDATE Orders
-        SET note = @NewNote
-        WHERE id = @OrderIDCursor;
-
-        PRINT 'Ghi chú của đơn hàng ID ' + CAST(@OrderIDCursor AS NVARCHAR) + ' đã được cập nhật';
-    END
-    ELSE
-    BEGIN
-        PRINT 'Không tìm thấy đơn hàng với OrderID: ' + CAST(@OrderID AS NVARCHAR);
-    END
-
-    -- Đóng và giải phóng con trỏ
-    CLOSE order_cursor;
-    DEALLOCATE order_cursor;
-END
-EXEC UpdateOrderNote @OrderID = 1, @NewNote = 'Updated note for this order'
-EXEC UpdateOrderNote @OrderID = 3, @NewNote = 'Updated note for this order...'
-select * from Orders
 
 
 
