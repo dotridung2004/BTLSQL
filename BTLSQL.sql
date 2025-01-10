@@ -1283,51 +1283,6 @@ select * from Delivery
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 --Giao dịch
 -- Giao dịch cập nhật thông tin người dùng
 begin tran capnhatnguoidung
@@ -1345,8 +1300,6 @@ begin tran thongtinnguoidung
     set transaction isolation level serializable;
     select * from Users;
 commit tran;
-
-
 
 
 --Tạo login 
